@@ -1,0 +1,28 @@
+# Trigger CodeBuild (prod) on push to main. No Pipeline — CodeBuild builds & deploys to ECS.
+name: Trigger Prod Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}  # Allow manual run from Actions tab
+
+permissions:
+  contents: read
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_FOR_GITHUB }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_FOR_GITHUB }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Trigger CodeBuild
+        run: |
+          aws codebuild start-build \
+            --project-name provider-build-deploy-prod \
+            --region ${{ secrets.AWS_REGION || 'us-east-1' }}
+          echo "CodeBuild triggered. Check AWS CodeBuild console for status."

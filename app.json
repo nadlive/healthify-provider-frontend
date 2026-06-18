@@ -1,0 +1,71 @@
+{
+  "expo": {
+    "name": "Provider",
+    "slug": "provider",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/Healthify_logo.png",
+    "scheme": "provider",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "developmentTeam": "47DPVR3C42",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Healthify Provider needs camera access for video consultations.",
+        "NSMicrophoneUsageDescription": "Healthify Provider needs microphone access for video consultations.",
+        "UIBackgroundModes": ["audio"]
+      },
+      "bundleIdentifier": "com.nadeeraktp1981.provider"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/Healthify_logo.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED"
+      ],
+      "package": "com.nadeeraktp1981.provider"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/Healthify_logo.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/Healthify_logo.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.960034157983-tqo116nn1af8g5peanf1e3g882c2cvfg"
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-font",
+      "expo-secure-store",
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {}
+    }
+  }
+}

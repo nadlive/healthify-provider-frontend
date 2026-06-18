@@ -1,0 +1,39 @@
+# Stage 1: Build the Expo web app
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy the rest of the application
+COPY . .
+
+# Hardcoded environment variables (non-sensitive)
+ENV EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=960034157983-8qc0ch7nanurg8335h3f1o9gnila6e67.apps.googleusercontent.com
+ENV EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=yet-to-add
+ENV EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=yet-to-add
+ENV EXPO_PUBLIC_API=https://api.dev.healthify.com.lk
+ENV EXPO_PUBLIC_SIGNALING_SERVER=wss://signaling.dev.healthify.com.lk
+ENV EXPO_USE_STATIC=0
+
+# Export Expo web app (dev build for debugging)
+RUN npx expo export --platform web --dev --no-minify
+
+# Stage 2: Serve with Nginx
+FROM nginx:alpine
+
+# Copy the built files from the builder stage
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Copy nginx configuration for SPA routing
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Expose port 80
+EXPOSE 80
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]

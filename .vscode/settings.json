@@ -1,0 +1,36 @@
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "editor.semanticHighlighting.enabled": true,
+  "editor.semanticTokenColorCustomizations": {
+    "rules": {
+      "*.unused": {
+        "foreground": "#999999",
+        "fontStyle": "italic"
+      },
+      "variable.readonly.unused": {
+        "foreground": "#999999",
+        "fontStyle": "italic"
+      },
+      "variable.unused": {
+        "foreground": "#999999",
+        "fontStyle": "italic"
+      }
+    }
+  },
+  "workbench.colorCustomizations": {
+    "editorError.border": "#ff0000",
+    "editorUnnecessaryCode.border": "#999999",
+    "editorUnnecessaryCode.opacity": "#99999980"
+  },
+  "javascript.validate.enable": true,
+  "typescript.validate.enable": true,
+  "javascript.suggestionActions.enabled": true,
+  "typescript.suggestionActions.enabled": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit"
+  }
+}

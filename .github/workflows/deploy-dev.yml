@@ -1,0 +1,147 @@
+name: Deploy Provider Frontend Web App to EC2 (Dev)
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write # Required for OIDC
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  PARAMETER_STORE_KEY: /healthify/dev/config_v1
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: development
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Bootstrap - Get OIDC Role ARN from Parameter Store
+        id: bootstrap
+        run: |
+          CONFIG=$(aws ssm get-parameter \
+            --name $PARAMETER_STORE_KEY \
+            --query Parameter.Value \
+            --output text \
+            --region $AWS_REGION)
+
+          ROLE_ARN=$(echo "$CONFIG" | jq -r '.github.actionsRoleArn')
+          echo "ROLE_ARN=$ROLE_ARN" >> $GITHUB_ENV
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_FOR_GITHUB }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_FOR_GITHUB }}
+
+      - name: Login to AWS via OIDC (Full Permissions)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActionsDeploy
+
+      - name: Get Configuration from Parameter Store
+        id: get-config
+        run: |
+          CONFIG=$(aws ssm get-parameter --name $PARAMETER_STORE_KEY --query Parameter.Value --output text)
+
+          export AWS_REGION=$(echo "$CONFIG" | jq -r '.region')
+          export EC2_HOST=$(echo "$CONFIG" | jq -r '.ec2.host')
+          export EC2_DNS=$(echo "$CONFIG" | jq -r '.ec2.dns // .ec2.host')
+          export EC2_INSTANCE_ID=$(echo "$CONFIG" | jq -r '.ec2.instanceId')
+          export EC2_USERNAME=$(echo "$CONFIG" | jq -r '.ec2.username')
+          export ECR_REPOSITORY_URL=$(echo "$CONFIG" | jq -r '.ecr.devRepositoryUrl')
+          export APP_DOMAIN=$(echo "$CONFIG" | jq -r '.domains.subdomains.provider')
+
+          if [ "$APP_DOMAIN" == "null" ] || [ -z "$APP_DOMAIN" ]; then
+            echo "⚠️ APP_DOMAIN not configured - set up domain in Route53 Pulumi deployment scripts"
+          fi
+
+          echo "AWS_REGION=$AWS_REGION" >> $GITHUB_ENV
+          echo "EC2_HOST=$EC2_HOST" >> $GITHUB_ENV
+          echo "EC2_DNS=$EC2_DNS" >> $GITHUB_ENV
+          echo "EC2_INSTANCE_ID=$EC2_INSTANCE_ID" >> $GITHUB_ENV
+          echo "EC2_USERNAME=$EC2_USERNAME" >> $GITHUB_ENV
+          echo "ECR_REPOSITORY_URL=$ECR_REPOSITORY_URL" >> $GITHUB_ENV
+          echo "APP_DOMAIN=$APP_DOMAIN" >> $GITHUB_ENV
+
+          echo "✅ Configuration loaded: Region=$AWS_REGION, Instance=$EC2_INSTANCE_ID"
+
+      - name: Build Docker image (Expo Web)
+        run: |
+          docker build -f Dockerfile.dev -t healthify-provider-frontend:dev .
+
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_URL
+
+      - name: Tag and Push to ECR
+        run: |
+          docker tag healthify-provider-frontend:dev $ECR_REPOSITORY_URL:provider-frontend
+          docker push $ECR_REPOSITORY_URL:provider-frontend
+
+      - name: ✅ Deploying application - Open this to see the application URLs
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids $EC2_INSTANCE_ID \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=[
+              "aws ecr get-login-password --region '"$AWS_REGION"' | docker login --username AWS --password-stdin '"$ECR_REPOSITORY_URL"'",
+              "docker stop healthify-provider-frontend-dev || true",
+              "docker rm healthify-provider-frontend-dev || true",
+              "docker rmi '"$ECR_REPOSITORY_URL"':provider-frontend || true",
+              "docker pull '"$ECR_REPOSITORY_URL"':provider-frontend",
+              "CONTAINER_ON_PORT=$(docker ps --filter \"publish=8081\" --format \"{{.ID}}\" | head -n 1)",
+              "if [ ! -z \"$CONTAINER_ON_PORT\" ]; then",
+              "  docker stop $CONTAINER_ON_PORT || true",
+              "  docker rm $CONTAINER_ON_PORT || true",
+              "fi",
+              "docker run -d -p 8081:80 --name healthify-provider-frontend-dev --restart unless-stopped '"$ECR_REPOSITORY_URL"':provider-frontend",
+              "docker image prune -f",
+              "echo \"✅ Container deployed successfully\""
+            ]' \
+            --output text \
+            --query 'Command.CommandId')
+
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$EC2_INSTANCE_ID"
+
+          STATUS=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$EC2_INSTANCE_ID" \
+            --query 'Status' \
+            --output text)
+
+          if [ "$STATUS" != "Success" ]; then
+            echo "❌ Deployment failed!"
+            exit 1
+          fi
+
+          echo "✅ Deployment successful!"
+          echo "🌐 https://$APP_DOMAIN"
+          echo "🔧 http://$EC2_DNS:8081"
+
+      # - name: Notify Slack - Success
+      #   if: success()
+      #   run: |
+      #     COMMIT_SHA=$(git rev-parse --short HEAD)
+      #     COMMIT_MSG=$(git log -1 --pretty=format:"%s")
+      #     COMMIT_AUTHOR=$(git log -1 --pretty=format:"%an")
+      #     COMMIT_DATE=$(git log -1 --pretty=format:"%ad" --date=short)
+      #     SLACK_MESSAGE="✅ Healthify Provider Frontend Web App deployed to Dev successfully!\nBranch: main, Commit: $COMMIT_SHA, Author: $COMMIT_AUTHOR, Date: $COMMIT_DATE.\nFeature: $COMMIT_MSG.\n🌐 Dev App: https://$APP_DOMAIN\n🔧 Direct: http://$EC2_DNS:8081"
+      #     curl -X POST -H 'Content-type: application/json' \
+      #     --data "{\"text\":\"$SLACK_MESSAGE\"}" \
+      #     ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      # - name: Notify Slack - Failure
+      #   if: failure()
+      #   run: |
+      #     curl -X POST -H 'Content-type: application/json' \
+      #     --data '{"text":"❌ Healthify Provider Frontend Web App deployment failed on EC2 for *main* branch!\nCheck: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' \
+      #     ${{ secrets.SLACK_WEBHOOK_URL }}
