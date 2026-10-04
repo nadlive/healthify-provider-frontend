@@ -33,6 +33,12 @@ export const loginWithGoogle = createAsyncThunk(
   'auth/loginWithGoogle',
   async ({ user, token, refreshToken }, { rejectWithValue }) => {
     try {
+      if (user?.role !== 'practitioner') {
+        await AsyncStorage.multiRemove([...AUTH_KEYS, 'practitionerId']);
+        return rejectWithValue(
+          'Access denied. Practitioner only. You have an account with a different role.',
+        );
+      }
       await AsyncStorage.setItem('authToken', token);
       if (refreshToken) {
         await AsyncStorage.setItem('refreshToken', refreshToken);
@@ -42,7 +48,7 @@ export const loginWithGoogle = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error.message || 'Google login failed');
     }
-  }
+  },
 );
 
 export const verifyTotp = createAsyncThunk(
@@ -51,6 +57,12 @@ export const verifyTotp = createAsyncThunk(
     try {
       const response = await authService.verifyTotp(email, totpCode);
       const data = response?.data ?? response;
+      if (data?.user && data.user.role !== 'practitioner') {
+        await AsyncStorage.multiRemove([...AUTH_KEYS, 'practitionerId']);
+        return rejectWithValue(
+          'Access denied. Practitioner only. You have an account with a different role.',
+        );
+      }
       if (data?.token) {
         await AsyncStorage.setItem('authToken', data.token);
         if (data.refreshToken) {
@@ -63,10 +75,10 @@ export const verifyTotp = createAsyncThunk(
       return data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message || error.message || 'Verification failed'
+        error.response?.data?.message || error.message || 'Verification failed',
       );
     }
-  }
+  },
 );
 
 export const fetchUser = createAsyncThunk(
@@ -81,7 +93,7 @@ export const fetchUser = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error?.message || 'Failed to fetch user');
     }
-  }
+  },
 );
 
 function rejectNonPractitioner(state) {
@@ -199,11 +211,15 @@ const authSlice = createSlice({
       })
       .addCase(fetchUser.fulfilled, (state, action) => {
         if (action.payload?.practitionerId != null) {
-          state.user = { ...state.user, practitionerId: action.payload.practitionerId };
+          state.user = {
+            ...state.user,
+            practitionerId: action.payload.practitionerId,
+          };
         }
       });
   },
 });
 
-export const { setAuthTokens, logout, setLoading, clearError } = authSlice.actions;
+export const { setAuthTokens, logout, setLoading, clearError } =
+  authSlice.actions;
 export default authSlice.reducer;

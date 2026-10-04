@@ -90,14 +90,18 @@ export default function ProviderLogin() {
         id: userFromApi.id || result.user?.id,
         email: userFromApi.email || result.user?.email,
         username: userFromApi.username || result.user?.email?.split('@')[0],
-        role: userFromApi.role || 'practitioner',
+        role: userFromApi.role,
         name: userFromApi.name || result.user?.name,
         picture: userFromApi.picture || result.user?.photo,
       };
 
       if (!accessToken || !normalizedUser.email) {
+        throw new Error(data?.message || 'Invalid login response from server');
+      }
+
+      if (normalizedUser.role !== 'practitioner') {
         throw new Error(
-          data?.message || 'Invalid login response from server'
+          'Access denied. Practitioner only. You have an account with a different role.',
         );
       }
 

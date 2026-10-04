@@ -39,7 +39,7 @@ export default function OAuthCallback() {
           id: user.id,
           email: user.email,
           username: user.username,
-          role: user.role || 'practitioner',
+          role: user.role,
           name: user.name || user.username || '',
           picture: user.picture || null,
         };
