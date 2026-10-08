@@ -9,3 +9,5 @@ The free AWS setup only serves the apps over HTTP. Chrome blocks camera, microph
 3. Click **Site settings**.
 4. Scroll down until you find **Insecure content**.
 5. Set it to **Allow**, then reload the page.
+
+Add firebase details to `firebase.js`
