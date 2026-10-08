@@ -5,13 +5,12 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyCycXRZQZBTY8FdjRy6GtHYF9oV-_98JxU',
-  authDomain: 'healthify-14bfa.firebaseapp.com',
-  projectId: 'healthify-14bfa',
-  storageBucket: 'healthify-14bfa.firebasestorage.app',
-  messagingSenderId: '235946892929',
-  appId: '1:235946892929:web:bff72a6a5ce80a0bf9f780',
-  measurementId: 'G-77YKPJLNYS',
+  apiKey: 'AIzaSyCNKclv3c5s87Kvqj-bxmng43_i9M6vURA',
+  authDomain: 'healthify-chat.firebaseapp.com',
+  projectId: 'healthify-chat',
+  storageBucket: 'healthify-chat.firebasestorage.app',
+  messagingSenderId: '748884487444',
+  appId: '1:748884487444:web:733e106c3fabd0d650e601',
 };
 
 const app = initializeApp(firebaseConfig);
