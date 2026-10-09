@@ -1,4 +1,3 @@
-// Same config as frontend (healthify-14bfa)
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
@@ -13,7 +12,7 @@ const firebaseConfig = {
   appId: '1:748884487444:web:733e106c3fabd0d650e601',
 };
 
-const app = initializeApp(firebaseConfig);
+export const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);

@@ -30,3 +30,12 @@ service cloud.firestore {
   }
 }
 ```
+
+**To send push notification on progressive web app change this**
+`public/firebase-messaging-sw.js`
+
+**To send push notification go to Firebase**
+https://console.firebase.google.com/u/0/project/healthify-chat/settings/cloudmessaging
+`Project settings -> Cloud Messaging -> Web Push certificates`
+Generate and add that key to `EXPO_PUBLIC_FIREBASE_VAPID_KEY`
+

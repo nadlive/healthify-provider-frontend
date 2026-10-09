@@ -6,6 +6,7 @@ import { store } from '../src/store';
 import AuthProvider from '../src/context/AuthContext';
 import { ToastProvider } from '../src/context/ToastContext';
 import AppShell from '../components/AppShell';
+import WebPushRegistrar from '../components/WebPushRegistrar';
 import './global.css';
 
 export default function RootLayout() {
@@ -45,6 +46,7 @@ export default function RootLayout() {
         <ToastProvider>
           <GestureHandlerRootView style={{ flex: 1 }}>
             <View style={{ flex: 1 }}>
+              {Platform.OS === 'web' ? <WebPushRegistrar /> : null}
               <AppShell />
             </View>
           </GestureHandlerRootView>
