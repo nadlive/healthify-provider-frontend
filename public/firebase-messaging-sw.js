@@ -23,7 +23,15 @@ const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
   const n = payload.notification;
-  console.log('[FCM] Background push received', n?.title, n?.body);
+  const text = `[FCM] Background push received: ${n?.title || ''} ${n?.body || ''}`;
+  console.log(text);
+  self.clients
+    .matchAll({ type: 'window', includeUncontrolled: true })
+    .then((clients) => {
+      clients.forEach((client) => {
+        client.postMessage({ type: 'fcm-debug', text });
+      });
+    });
   if (n) {
     self.registration.showNotification(n.title || 'Healthify', {
       body: n.body || '',

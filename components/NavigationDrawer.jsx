@@ -20,6 +20,7 @@ const DRAWER_LINKS = [
     icon: 'calendar-outline',
   },
   { route: '/(tabs)/profile', label: 'Profile', icon: 'person-outline' },
+  { route: '/settings', label: 'Settings', icon: 'settings-outline' },
 ];
 
 function DrawerContent({ onClose, onNavigate }) {

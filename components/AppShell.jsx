@@ -4,7 +4,7 @@ import { Slot, useSegments } from 'expo-router';
 import AppHeader from './AppHeader';
 import NavigationDrawer from './NavigationDrawer';
 
-const MAIN_SEGMENTS = ['(tabs)', 'appointment', 'chat', 'patient', 'video-call', 'notifications'];
+const MAIN_SEGMENTS = ['(tabs)', 'appointment', 'chat', 'patient', 'video-call', 'notifications', 'settings'];
 
 export default function AppShell() {
   const [drawerOpen, setDrawerOpen] = useState(false);

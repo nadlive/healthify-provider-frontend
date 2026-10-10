@@ -24,17 +24,20 @@ export default function WebPushRegistrar() {
 
     void (async () => {
       const token = await registerFirebaseWebPush();
-      if (!token || cancelled || savedToken.current === token) {
-        if (!token) console.log('[FCM] No token to save');
-        return;
-      }
+      if (!token || cancelled || savedToken.current === token) return;
 
       try {
         await api.post('/user/fcm', { token });
         savedToken.current = token;
         console.log('[FCM] Token saved');
+        alert('[FCM] Token saved');
       } catch (error) {
         console.warn('[Healthify] Saving FCM token failed', error);
+        alert(
+          `[FCM] Saving token failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
       }
     })();
 

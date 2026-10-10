@@ -5,16 +5,53 @@
  * from Firebase Console → Project settings → Cloud Messaging.
  */
 
-export async function registerFirebaseWebPush(): Promise<string | null> {
+// Temporary: phone browsers hide console logs. Remove these alerts after FCM testing.
+function fcmAlert(message: string) {
+  console.log(message);
+  if (typeof alert === 'function') alert(message);
+}
+
+export async function registerFirebaseWebPush(options?: {
+  askPermission?: boolean;
+}): Promise<string | null> {
   if (typeof window === 'undefined' || typeof Notification === 'undefined') {
-    console.log('[FCM] Notifications are not available in this browser');
+    fcmAlert('[FCM] Notifications are not available in this browser');
     return null;
+  }
+
+  // Call this before any other await. Safari only shows the Allow dialog
+  // when requestPermission() runs in the same turn as the button tap.
+  let permission = Notification.permission;
+  if (permission !== 'granted') {
+    if (!options?.askPermission) return null;
+    permission = await Notification.requestPermission();
+  }
+  if (permission !== 'granted') {
+    fcmAlert(
+      permission === 'denied'
+        ? '[FCM] Notifications are blocked. Allow them in the browser or iPhone settings, then tap Turn on notifications again.'
+        : `[FCM] Notification permission was not granted: ${permission}`,
+    );
+    return null;
+  }
+
+  if (
+    typeof navigator !== 'undefined' &&
+    navigator.serviceWorker &&
+    !(window as Window & { __fcmDebugListener?: boolean }).__fcmDebugListener
+  ) {
+    (window as Window & { __fcmDebugListener?: boolean }).__fcmDebugListener =
+      true;
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      const text = event.data?.type === 'fcm-debug' ? event.data.text : '';
+      if (text) fcmAlert(text);
+    });
   }
 
   const vapidKey = process.env.EXPO_PUBLIC_FIREBASE_VAPID_KEY;
   if (!vapidKey) {
-    console.warn(
-      '[FCM] Web push: add EXPO_PUBLIC_FIREBASE_VAPID_KEY (Firebase Console → Cloud Messaging → Web Push certificates).',
+    fcmAlert(
+      '[FCM] Missing EXPO_PUBLIC_FIREBASE_VAPID_KEY (Firebase Console → Cloud Messaging → Web Push certificates).',
     );
     return null;
   }
@@ -27,18 +64,7 @@ export async function registerFirebaseWebPush(): Promise<string | null> {
       ]);
 
     if (!(await isSupported())) {
-      console.log('[FCM] Web push is not supported in this browser');
-      return null;
-    }
-
-    // Safari returns "denied" from requestPermission() on page load, even when
-    // Settings already allows this site. Use the stored permission in that case.
-    let permission = Notification.permission;
-    if (permission !== 'granted') {
-      permission = await Notification.requestPermission();
-    }
-    if (permission !== 'granted') {
-      console.log('[FCM] Notification permission was not granted:', permission);
+      fcmAlert('[FCM] Web push is not supported in this browser');
       return null;
     }
 
@@ -55,7 +81,7 @@ export async function registerFirebaseWebPush(): Promise<string | null> {
     onMessage(messaging, async (payload) => {
       const title = payload.notification?.title || 'Healthify';
       const body = payload.notification?.body || '';
-      console.log('[FCM] Push received', title, body);
+      fcmAlert(`[FCM] Push received: ${title} — ${body}`);
       const options = {
         body,
         icon: '/logo192.png',
@@ -75,15 +101,25 @@ export async function registerFirebaseWebPush(): Promise<string | null> {
           }
           new Notification(title, options);
         } catch (e) {
-          console.warn('[FCM] Foreground notification display failed', e);
+          fcmAlert(
+            `[FCM] Foreground notification display failed: ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          );
         }
       }
     });
 
-    console.log('[FCM] Web token acquired');
+    fcmAlert(
+      `[FCM] Web token acquired: ${token ? `${token.slice(0, 12)}…` : 'empty'}`,
+    );
     return token;
   } catch (e) {
-    console.warn('[Healthify] Web push registration failed', e);
+    fcmAlert(
+      `[FCM] Web push registration failed: ${
+        e instanceof Error ? e.message : String(e)
+      }`,
+    );
     return null;
   }
 }
