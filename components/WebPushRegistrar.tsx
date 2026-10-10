@@ -30,14 +30,8 @@ export default function WebPushRegistrar() {
         await api.post('/user/fcm', { token });
         savedToken.current = token;
         console.log('[FCM] Token saved');
-        alert('[FCM] Token saved');
       } catch (error) {
-        console.warn('[Healthify] Saving FCM token failed', error);
-        alert(
-          `[FCM] Saving token failed: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
+        console.warn('[FCM] Saving token failed', error);
       }
     })();
 

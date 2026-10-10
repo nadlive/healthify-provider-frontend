@@ -23,11 +23,7 @@ export default function SettingsScreen() {
       await api.post('/user/fcm', { token });
       setEnabled(true);
     } catch (error) {
-      alert(
-        `[FCM] Saving token failed: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
+      console.warn('[FCM] Saving token failed', error);
     }
   };
 

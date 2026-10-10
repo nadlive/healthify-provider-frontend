@@ -5,17 +5,15 @@
  * from Firebase Console → Project settings → Cloud Messaging.
  */
 
-// Temporary: phone browsers hide console logs. Remove these alerts after FCM testing.
-function fcmAlert(message: string) {
+function fcmLog(message: string) {
   console.log(message);
-  if (typeof alert === 'function') alert(message);
 }
 
 export async function registerFirebaseWebPush(options?: {
   askPermission?: boolean;
 }): Promise<string | null> {
   if (typeof window === 'undefined' || typeof Notification === 'undefined') {
-    fcmAlert('[FCM] Notifications are not available in this browser');
+    fcmLog('[FCM] Notifications are not available in this browser');
     return null;
   }
 
@@ -27,7 +25,7 @@ export async function registerFirebaseWebPush(options?: {
     permission = await Notification.requestPermission();
   }
   if (permission !== 'granted') {
-    fcmAlert(
+    fcmLog(
       permission === 'denied'
         ? '[FCM] Notifications are blocked. Allow them in the browser or iPhone settings, then tap Turn on notifications again.'
         : `[FCM] Notification permission was not granted: ${permission}`,
@@ -44,13 +42,13 @@ export async function registerFirebaseWebPush(options?: {
       true;
     navigator.serviceWorker.addEventListener('message', (event) => {
       const text = event.data?.type === 'fcm-debug' ? event.data.text : '';
-      if (text) fcmAlert(text);
+      if (text) fcmLog(text);
     });
   }
 
   const vapidKey = process.env.EXPO_PUBLIC_FIREBASE_VAPID_KEY;
   if (!vapidKey) {
-    fcmAlert(
+    fcmLog(
       '[FCM] Missing EXPO_PUBLIC_FIREBASE_VAPID_KEY (Firebase Console → Cloud Messaging → Web Push certificates).',
     );
     return null;
@@ -64,7 +62,7 @@ export async function registerFirebaseWebPush(options?: {
       ]);
 
     if (!(await isSupported())) {
-      fcmAlert('[FCM] Web push is not supported in this browser');
+      fcmLog('[FCM] Web push is not supported in this browser');
       return null;
     }
 
@@ -81,7 +79,7 @@ export async function registerFirebaseWebPush(options?: {
     onMessage(messaging, async (payload) => {
       const title = payload.notification?.title || 'Healthify';
       const body = payload.notification?.body || '';
-      fcmAlert(`[FCM] Push received: ${title} — ${body}`);
+      fcmLog(`[FCM] Push received: ${title} — ${body}`);
       const options = {
         body,
         icon: '/logo192.png',
@@ -101,7 +99,7 @@ export async function registerFirebaseWebPush(options?: {
           }
           new Notification(title, options);
         } catch (e) {
-          fcmAlert(
+          fcmLog(
             `[FCM] Foreground notification display failed: ${
               e instanceof Error ? e.message : String(e)
             }`,
@@ -110,12 +108,12 @@ export async function registerFirebaseWebPush(options?: {
       }
     });
 
-    fcmAlert(
+    fcmLog(
       `[FCM] Web token acquired: ${token ? `${token.slice(0, 12)}…` : 'empty'}`,
     );
     return token;
   } catch (e) {
-    fcmAlert(
+    fcmLog(
       `[FCM] Web push registration failed: ${
         e instanceof Error ? e.message : String(e)
       }`,

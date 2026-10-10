@@ -37,7 +37,14 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/Healthify_logo.png"
+      "favicon": "./assets/images/Healthify_logo.png",
+      "themeColor": "#9D5A8F",
+      "name": "HealthifyProvider",
+      "shortName": "HealthifyProvider",
+      "description": "Healthcare appointments, chat, and consultations",
+      "display": "standalone",
+      "backgroundColor": "#F5F5F8",
+      "lang": "en"
     },
     "plugins": [
       "expo-router",
