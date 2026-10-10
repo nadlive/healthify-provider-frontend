@@ -10,6 +10,7 @@ import {
 import { Ionicons } from "@expo/vector-icons"
 import { COLORS } from "../constants/colors"
 import { IMG } from "../assets/images/images"
+import NotificationBell from "./NotificationBell"
 
 const HEADER_HEIGHT = 56
 
@@ -32,7 +33,7 @@ export default function AppHeader({ onMenuPress }) {
         />
         <Text style={styles.tagline}>Provider</Text>
       </View>
-      <View style={styles.placeholder} />
+      <NotificationBell />
     </View>
   )
 }

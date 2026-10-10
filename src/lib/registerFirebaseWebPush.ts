@@ -7,16 +7,15 @@
 
 export async function registerFirebaseWebPush(): Promise<string | null> {
   if (typeof window === 'undefined' || typeof Notification === 'undefined') {
+    console.log('[FCM] Notifications are not available in this browser');
     return null;
   }
 
   const vapidKey = process.env.EXPO_PUBLIC_FIREBASE_VAPID_KEY;
   if (!vapidKey) {
-    if (__DEV__) {
-      console.warn(
-        '[Healthify] Web push: add EXPO_PUBLIC_FIREBASE_VAPID_KEY (Firebase Console → Cloud Messaging → Web Push certificates).',
-      );
-    }
+    console.warn(
+      '[FCM] Web push: add EXPO_PUBLIC_FIREBASE_VAPID_KEY (Firebase Console → Cloud Messaging → Web Push certificates).',
+    );
     return null;
   }
 
@@ -28,11 +27,18 @@ export async function registerFirebaseWebPush(): Promise<string | null> {
       ]);
 
     if (!(await isSupported())) {
+      console.log('[FCM] Web push is not supported in this browser');
       return null;
     }
 
-    const permission = await Notification.requestPermission();
+    // Safari returns "denied" from requestPermission() on page load, even when
+    // Settings already allows this site. Use the stored permission in that case.
+    let permission = Notification.permission;
     if (permission !== 'granted') {
+      permission = await Notification.requestPermission();
+    }
+    if (permission !== 'granted') {
+      console.log('[FCM] Notification permission was not granted:', permission);
       return null;
     }
 
@@ -49,6 +55,7 @@ export async function registerFirebaseWebPush(): Promise<string | null> {
     onMessage(messaging, async (payload) => {
       const title = payload.notification?.title || 'Healthify';
       const body = payload.notification?.body || '';
+      console.log('[FCM] Push received', title, body);
       const options = {
         body,
         icon: '/logo192.png',
@@ -67,12 +74,13 @@ export async function registerFirebaseWebPush(): Promise<string | null> {
             return;
           }
           new Notification(title, options);
-        } catch {
-          // Notification display can fail if the browser blocks it.
+        } catch (e) {
+          console.warn('[FCM] Foreground notification display failed', e);
         }
       }
     });
 
+    console.log('[FCM] Web token acquired');
     return token;
   } catch (e) {
     console.warn('[Healthify] Web push registration failed', e);

@@ -23,6 +23,7 @@ const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
   const n = payload.notification;
+  console.log('[FCM] Background push received', n?.title, n?.body);
   if (n) {
     self.registration.showNotification(n.title || 'Healthify', {
       body: n.body || '',

@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { GiftedChat } from 'react-native-gifted-chat';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -20,7 +21,20 @@ import { auth, db } from '../../firebase';
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { useAppDispatch, useAppSelector } from '../../src/store/hooks';
 import { fetchChatById } from '../../src/store/slices/chatSlice';
+import chatService from '../../src/services/chatService';
 import { COLORS } from '../../constants/colors';
+
+function requestSenderName(patientFirstName) {
+  const name = String(patientFirstName || '').trim();
+  if (!name || name.length > 20) return 'Healthify';
+  return `Patient: ${name}`;
+}
+
+function doctorSenderName(practitionerFirstName) {
+  const name = String(practitionerFirstName || '').trim();
+  if (!name || name.length > 20) return 'Healthify';
+  return name;
+}
 
 function getChatId(paramId) {
   if (paramId && paramId !== 'test') return paramId;
@@ -36,9 +50,14 @@ export default function ChatScreen() {
 
   const chatStatus = currentChat?.status ?? '';
   const statusLabel = chatStatus?.toUpperCase();
+  const patientName = [currentChat?.patient?.firstName, currentChat?.patient?.lastName]
+    .filter(Boolean)
+    .join(' ');
 
   const isChatCompleted = String(chatStatus).toLowerCase() === 'completed';
+  const isRejected = String(chatStatus).toLowerCase() === 'rejected';
   const chatReadOnly = isChatCompleted || !currentChat;
+  const canReadyChat = Boolean(currentChat) && !isChatCompleted && !isRejected;
 
   useEffect(() => {
     if (chatId) {
@@ -51,6 +70,7 @@ export default function ChatScreen() {
   const [messagesLoading, setMessagesLoading] = useState(true);
   const [sendStatus, setSendStatus] = useState('idle');
   const [sendError, setSendError] = useState(null);
+  const [readyingChat, setReadyingChat] = useState(false);
 
   const displayName = 'Provider';
 
@@ -85,7 +105,15 @@ export default function ChatScreen() {
               _id: doc.id,
               text: d.text || '',
               createdAt: d.createdAt?.toDate() || new Date(),
-              user: { _id: d.userId, name: d.userName || 'User' },
+              user: {
+                _id: d.userId,
+                name:
+                  d.userId === 'healthify'
+                    ? requestSenderName(d.patientFirstName)
+                    : d.userId === 'healthify-doctor'
+                      ? doctorSenderName(d.practitionerFirstName)
+                      : d.userName || 'User',
+              },
             };
           }),
         );
@@ -135,6 +163,29 @@ export default function ChatScreen() {
     [chatId],
   );
 
+  const handleReadyForChat = async () => {
+    if (!chatId || readyingChat || chatId === 'provider-test') return;
+    setReadyingChat(true);
+    try {
+      const response = await chatService.readyForChat(chatId);
+      const firstName = String(response?.firstName || '').trim();
+      await addDoc(collection(db, 'chats', chatId, 'messages'), {
+        text: "I'm ready to continue this chat with you now.",
+        userId: 'healthify-doctor',
+        userName: 'Healthify',
+        practitionerFirstName: firstName,
+        createdAt: serverTimestamp(),
+      });
+    } catch {
+      Alert.alert(
+        'Could not send',
+        'The message did not go through. Please try again.',
+      );
+    } finally {
+      setReadyingChat(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -143,6 +194,10 @@ export default function ChatScreen() {
         </TouchableOpacity>
         <Text style={styles.title}>Chat</Text>
       </View>
+
+      {patientName ? (
+        <Text style={styles.withName}>You are chatting with {patientName}</Text>
+      ) : null}
 
       {statusLabel ? (
         <View
@@ -178,6 +233,22 @@ export default function ChatScreen() {
         </View>
       )}
 
+      {canReadyChat ? (
+        <View style={styles.readyRow}>
+          <TouchableOpacity
+            style={styles.readyButton}
+            onPress={handleReadyForChat}
+            disabled={readyingChat}
+          >
+            {readyingChat ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <Text style={styles.readyButtonText}>Ready to chat now</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       <View
         style={[styles.chatWrap, isChatCompleted && styles.chatWrapCompleted]}
       >
@@ -191,6 +262,7 @@ export default function ChatScreen() {
             messages={messages}
             onSend={chatReadOnly ? () => {} : onSend}
             user={{ _id: firebaseUser.uid, name: displayName }}
+            renderUsernameOnMessage
             placeholder={chatReadOnly ? '' : 'Type a message...'}
             renderActions={chatReadOnly ? () => null : undefined}
             renderInputToolbar={chatReadOnly ? () => null : undefined}
@@ -227,6 +299,14 @@ const styles = StyleSheet.create({
   backBtn: { marginRight: 12 },
   backText: { fontSize: 16, color: COLORS.logo },
   title: { fontSize: 18, fontWeight: '600', color: COLORS.txt_primary },
+  withName: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: COLORS.white,
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.txt_primary,
+  },
   chatStatusBar: {
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -267,6 +347,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#fee',
   },
   statusText: { fontSize: 13, color: COLORS.txt_primary },
+  readyRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: COLORS.white,
+  },
+  readyButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.logo,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  readyButtonText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: '700',
+  },
   loadingText: { fontSize: 14, color: COLORS.txt_secondary, marginTop: 8 },
   loadingContainer: {
     flex: 1,
