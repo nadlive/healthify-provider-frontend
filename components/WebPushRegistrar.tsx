@@ -29,7 +29,12 @@ export default function WebPushRegistrar() {
       try {
         await api.post('/user/fcm', { token });
         savedToken.current = token;
-        console.log('[FCM] Token saved');
+        console.log(
+          `[FCM] This: event=saveToken app=provider token=${token.slice(0, 12)}…`,
+        );
+        console.log(
+          '[FCM] Send to: POST /user/fcm (overwrites previous device token for this user)',
+        );
       } catch (error) {
         console.warn('[FCM] Saving token failed', error);
       }

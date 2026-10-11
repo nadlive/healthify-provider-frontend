@@ -6,6 +6,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  ScrollView,
+  Platform,
 } from 'react-native';
 import { GiftedChat } from 'react-native-gifted-chat';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -50,7 +52,10 @@ export default function ChatScreen() {
 
   const chatStatus = currentChat?.status ?? '';
   const statusLabel = chatStatus?.toUpperCase();
-  const patientName = [currentChat?.patient?.firstName, currentChat?.patient?.lastName]
+  const patientName = [
+    currentChat?.patient?.firstName,
+    currentChat?.patient?.lastName,
+  ]
     .filter(Boolean)
     .join(' ');
 
@@ -71,18 +76,38 @@ export default function ChatScreen() {
   const [sendStatus, setSendStatus] = useState('idle');
   const [sendError, setSendError] = useState(null);
   const [readyingChat, setReadyingChat] = useState(false);
+  const [debugLogs, setDebugLogs] = useState([]);
+  const [showDebug, setShowDebug] = useState(false);
 
   const displayName = 'Provider';
+
+  const addDebugLog = (event, details) => {
+    const line = `[${new Date().toLocaleTimeString()}] ${event}: ${details}`;
+    console.log(`[ChatDebug] ${line}`);
+    setDebugLogs((prev) => [...prev.slice(-40), line]);
+  };
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, setFirebaseUser);
     if (!auth.currentUser) {
       signInAnonymously(auth).catch((e) =>
-        console.warn('[Chat] Anonymous sign-in:', e?.message),
+        addDebugLog('AUTH', e?.message || 'Anonymous sign-in failed'),
       );
     }
     return unsub;
   }, []);
+
+  useEffect(() => {
+    if (!chatId) return;
+    addDebugLog(
+      'This',
+      `role=provider chatId=${chatId} status=${chatStatus || '-'} firebaseUid=${firebaseUser?.uid || '-'} ui=GIFTED_CHAT`,
+    );
+    addDebugLog(
+      'Send to',
+      `firestore chats/${chatId}/messages (realtime; FCM only on Ready — not per message). Patient UI hides messages until chat status=active`,
+    );
+  }, [chatId, chatStatus, firebaseUser?.uid]);
 
   useEffect(() => {
     if (!chatId || !firebaseUser) {
@@ -90,6 +115,7 @@ export default function ChatScreen() {
       return;
     }
     setMessagesLoading(true);
+    addDebugLog('Listen', `attaching chats/${chatId}/messages`);
     const q = query(
       collection(db, 'chats', chatId, 'messages'),
       orderBy('createdAt', 'desc'),
@@ -98,6 +124,11 @@ export default function ChatScreen() {
       q,
       (snap) => {
         setMessagesLoading(false);
+        const latest = snap.docs[0]?.data();
+        addDebugLog(
+          'RECEIVED',
+          `${snap.docs.length} msgs | latestFrom=${latest?.userName || latest?.userId || '-'}`,
+        );
         setMessages(
           snap.docs.map((doc) => {
             const d = doc.data();
@@ -120,6 +151,7 @@ export default function ChatScreen() {
       },
       (err) => {
         setMessagesLoading(false);
+        addDebugLog('Listen ERROR', err?.message || 'unknown');
         setSendError(err?.message || 'Listen failed');
       },
     );
@@ -147,6 +179,11 @@ export default function ChatScreen() {
       setSendStatus('sending');
       setSendError(null);
       try {
+        addDebugLog(
+          'This',
+          `SEND role=provider chatId=${chatId} firebaseUid=${user.uid}`,
+        );
+        addDebugLog('Send to', `firestore chats/${chatId}/messages`);
         await addDoc(collection(db, 'chats', chatId, 'messages'), {
           text: msg.text || '',
           userId: user.uid,
@@ -158,6 +195,7 @@ export default function ChatScreen() {
       } catch (e) {
         setSendStatus('error');
         setSendError(e?.message || 'Send failed');
+        addDebugLog('SEND ERROR', e?.message || 'Send failed');
       }
     },
     [chatId],
@@ -167,6 +205,14 @@ export default function ChatScreen() {
     if (!chatId || readyingChat || chatId === 'provider-test') return;
     setReadyingChat(true);
     try {
+      addDebugLog(
+        'This',
+        `event=readyForChat chatId=${chatId} status=${chatStatus || '-'}`,
+      );
+      addDebugLog(
+        'Send to',
+        'API POST /chat/:id/ready → FCM patient + in-app (does NOT set status=active; Accept appointment does)',
+      );
       const response = await chatService.readyForChat(chatId);
       const firstName = String(response?.firstName || '').trim();
       await addDoc(collection(db, 'chats', chatId, 'messages'), {
@@ -281,6 +327,32 @@ export default function ChatScreen() {
           />
         )}
       </View>
+
+      <TouchableOpacity
+        onPress={() => setShowDebug(!showDebug)}
+        style={styles.debugToggle}
+      >
+        <Text style={styles.debugToggleText}>
+          {showDebug ? '▼' : '▶'} Debug (
+          {chatId ? `${String(chatId).slice(0, 12)}...` : 'no chatId'})
+        </Text>
+      </TouchableOpacity>
+      {showDebug ? (
+        <View style={styles.debugPanel}>
+          <Text style={styles.debugLabel}>Logs:</Text>
+          <ScrollView style={styles.debugLogs} nestedScrollEnabled>
+            {debugLogs.length === 0 ? (
+              <Text style={styles.debugEmpty}>No activity yet.</Text>
+            ) : (
+              debugLogs.map((log, i) => (
+                <Text key={i} style={styles.debugLogText}>
+                  {log}
+                </Text>
+              ))
+            )}
+          </ScrollView>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -377,5 +449,31 @@ const styles = StyleSheet.create({
   chatWrapCompleted: {
     opacity: 0.85,
     backgroundColor: COLORS.txt_secondary + '12',
+  },
+  debugToggle: { marginTop: 8, paddingVertical: 8, paddingHorizontal: 12 },
+  debugToggleText: { fontSize: 12, fontWeight: '600', color: COLORS.logo },
+  debugPanel: {
+    maxHeight: 160,
+    marginHorizontal: 12,
+    marginBottom: 12,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.bg_dark,
+  },
+  debugLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.txt_primary,
+    marginBottom: 4,
+  },
+  debugLogs: { maxHeight: 120 },
+  debugEmpty: { fontSize: 11, color: COLORS.txt_secondary },
+  debugLogText: {
+    fontSize: 11,
+    color: COLORS.txt_secondary,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    marginBottom: 2,
   },
 });
